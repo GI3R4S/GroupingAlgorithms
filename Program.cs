@@ -41,7 +41,7 @@ namespace GroupingMehods
     {
         #region GeneralSettings
         public static Option option = Option.Kohonen;
-        public static double learningRate = 0.1;
+        public static double learningRate = 0.5;
         public static int ExecutionsCount = 1;
         public static int SamplesCount = 1;
         public static int EpochsCount = 1000;
@@ -53,7 +53,7 @@ namespace GroupingMehods
         public static int centresCount = 30;// KMeans and Neural gas 
         #endregion
         #region AppliesToKohonenAndGas
-        public static Neighborhood neighborhood = Neighborhood.far;
+        public static Neighborhood neighborhood = Neighborhood.close;
         #endregion
         #region AppliesToKohonen
         public static int rows = 5;
@@ -85,6 +85,7 @@ namespace GroupingMehods
                             break;
                         }
                 }
+                WriteLine($"Execution {iterator}. done ");
             }
         }
         #endregion
@@ -113,6 +114,7 @@ namespace GroupingMehods
         {
             List<double> diffrence = new List<double>();
             Centre[] centres = InitalizeCentres(points);
+            int krotnosc = 1;
             for (int i = 0; i < EpochsCount; i++)
             {
                 List<int> numbers = GenerateNumbers(points);
@@ -134,6 +136,11 @@ namespace GroupingMehods
                 ResetAllocations(centres);
                 ComputeDistancesAndAllocatePoints(centres, points);
                 diffrence.Add(ComputeEpochError(centres, points));
+                if(i == krotnosc*EpochsCount/10)
+                {
+                    WriteLine((krotnosc * 10) + "%");
+                    krotnosc++;
+                }
             }
             SaveCentresCordinates(centres, iterator);
             SaveDiffrencesToFile(centres, diffrence, iterator);
@@ -147,6 +154,7 @@ namespace GroupingMehods
             List<double> diffrence = new List<double>();
             Centre[,] centresMatrix = InitalizeCentresMatrix(points);
             Centre[] centresVector = new Centre[rows * columns];
+            int krotnosc = 1;
             for (int k = 0; k < rows; k++)
             {
                 for (int l = 0; l < columns; l++)
@@ -154,6 +162,7 @@ namespace GroupingMehods
                     centresVector[(k * columns) + l] = centresMatrix[k, l];
                 }
             }
+
             for (int i = 0; i < EpochsCount; i++)
             {
                 List<int> numbers = GenerateNumbers(points);
@@ -170,14 +179,20 @@ namespace GroupingMehods
                         tired = winner;
                         winner = centreDistancePairs[1].centre;
                     }
-                    int minX = 0;
-                    int minY = 0;
-                    FindWinnerCordinates(ref minX, ref minY, centresMatrix, winner);
-                    UpdateCentresActivitiesAndCordinatesKohonen(minX, minY, centresMatrix, points, winner, tired, randomIndex);
+                    int winI = 0;
+                    int winJ = 0;
+                    FindWinnerCordinates(ref winI, ref winJ, centresMatrix, winner);
+                    UpdateCentresActivitiesAndCordinatesKohonen(winI, winJ, centresMatrix, points, winner, tired, randomIndex);
                 }
+                ResetAllocations(centresVector);
                 ComputeDistancesAndAllocatePoints(centresVector, points);
                 diffrence.Add(ComputeEpochError(centresVector, points));
                 ResetAllocations(centresVector);
+                if (i == krotnosc * EpochsCount / 10)
+                {
+                    WriteLine((krotnosc * 10) + "%");
+                    krotnosc++;
+                }
             }
             SaveCentresCordinates(centresVector, iterator);
             SaveDiffrencesToFile(centresVector, diffrence, iterator);
@@ -235,7 +250,7 @@ namespace GroupingMehods
             }
             else
             {
-                fileName = option.ToString() + "_" + "NeuralGasOrKohonenInit" + "_przebieg" + iterator + "_Centres.xml";
+                fileName = option.ToString() + "_" + "NeuralGasOrKohonenInit" + "_przebieg" + iterator + "_" + neighborhood.ToString() + "_Centres.xml";
             }
             using (StreamWriter streamWriter = new StreamWriter(fileName, false))
             {
@@ -254,7 +269,7 @@ namespace GroupingMehods
             }
             else
             {
-                fileName = option.ToString() + "_" + "NeuralGasOrKohonenInit" + "_przebieg" + iterator + "_Diffrences.xml";
+                fileName = option.ToString() + "_" + "NeuralGasOrKohonenInit" + "_przebieg" + iterator + "_" + neighborhood.ToString() + "_Diffrences.xml";
             }
             using (StreamWriter sw = new StreamWriter(fileName))
             {
@@ -352,7 +367,7 @@ namespace GroupingMehods
             {
                 for (int j = 0; j < centres[i].points.Count; j++)
                 {
-                    epochDiffrence += Pow(centres[i].points[j].x - centres[i].x, 2) + Pow(centres[i].points[j].y - centres[i].y, 2);
+                    epochDiffrence += (Pow(centres[i].points[j].x - centres[i].x, 2) + Pow(centres[i].points[j].y - centres[i].y, 2));
                 }
             }
             epochDiffrence /= points.Count;
@@ -419,16 +434,24 @@ namespace GroupingMehods
                 {
                     centreDistancePairs[i].centre.activity += 1.0 / centres.Length;
                 }
-                //if (centreDistancePairs[i].centre.activity > 1)
-                //{
-                //    centreDistancePairs[i].centre.activity = 1;
-                //}
-                double deltaX = 0;
-                double deltaY = 0;
-                deltaX = points[randomIndex].x - centreDistancePairs[i].centre.x;
-                deltaY = points[randomIndex].y - centreDistancePairs[i].centre.y;
-                centreDistancePairs[i].centre.x += learningRate * Exp(-i) * deltaX;
-                centreDistancePairs[i].centre.y += learningRate * Exp(-i) * deltaY;
+                if ((neighborhood == Neighborhood.close && i <= 4))
+                {
+                    double deltaX = 0;
+                    double deltaY = 0;
+                    deltaX = points[randomIndex].x - centreDistancePairs[i].centre.x;
+                    deltaY = points[randomIndex].y - centreDistancePairs[i].centre.y;
+                    centreDistancePairs[i].centre.x += learningRate * Exp(-i) * deltaX;
+                    centreDistancePairs[i].centre.y += learningRate * Exp(-i) * deltaY;
+                }
+                if ((neighborhood == Neighborhood.far && i <= 8))
+                {
+                    double deltaX = 0;
+                    double deltaY = 0;
+                    deltaX = points[randomIndex].x - centreDistancePairs[i].centre.x;
+                    deltaY = points[randomIndex].y - centreDistancePairs[i].centre.y;
+                    centreDistancePairs[i].centre.x += learningRate * Exp(-i) * deltaX;
+                    centreDistancePairs[i].centre.y += learningRate * Exp(-i) * deltaY;
+                }
             }
         }
         public static List<CentreDistancePair> CreateAndSortDistanceCentrePairs(Centre[] centres, List<Point> points, int randomIndex)
@@ -490,8 +513,8 @@ namespace GroupingMehods
                     if (((i == (minX - 1) && j == minY)
                          || (i == (minX + 1) && j == minY)
                          || (i == minX && j == (minY - 1))
-                         || (i == minX && j == (minY - 1))
-                         && centresMatrix[i, j] != tired)
+                         || (i == minX && j == (minY - 1)))
+                         && (centresMatrix[i, j] != tired)
                         )
                     {
                         deltaX = points[randomIndex].x - centresMatrix[i, j].x;
@@ -505,8 +528,8 @@ namespace GroupingMehods
                         if (((i == (minX - 1) && j == (minY - 1))
                                 || (i == (minX - 1) && j == (minY + 1))
                                 || (i == (minX + 1) && j == (minY - 1))
-                                || (i == (minX - 1) && j == (minY - 1))
-                                 && centresMatrix[i, j] != tired)
+                                || (i == (minX - 1) && j == (minY - 1)))
+                                 && centresMatrix[i, j] != tired
                             )
                         {
                             deltaX = points[randomIndex].x - centresMatrix[i, j].x;
@@ -528,10 +551,6 @@ namespace GroupingMehods
                     {
                         centresMatrix[i, j].activity += 1.0 / (rows * columns);
                     }
-                    //if (centresMatrix[i, j].activity > 1)
-                    //{
-                    //    centresMatrix[i, j].activity = 1;
-                    //}
                 }
             }
         }
