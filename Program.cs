@@ -40,21 +40,20 @@ namespace GroupingMehods
     public class Program
     {
         #region GeneralSettings
-        public static Option option = Option.NeuralGas;
-        public static double learningRate = 0.5;
-        public static double currentLearningRate = learningRate;
+        public static Option option = Option.Kohonen;
         public static int ExecutionsCount = 5;
-        public static int SamplesCount = 1;
-        public static int EpochsCount = 1000;
         #endregion
         #region AppliesToKmeans
         public static Init init = Init.RandomPartition;
         #endregion
         #region AppliesToKMeansAndGas
-        public static int centresCount = 30;// KMeans and Neural gas 
+        public static int centresCount = 30;
         #endregion
         #region AppliesToKohonenAndGas
+        public static double learningRate = 0.5;
+        public static double currentLearningRate = learningRate;
         public static Neighborhood neighborhood = Neighborhood.far;
+        public static int SamplesCount = 1000;
         #endregion
         #region AppliesToKohonen
         public static int rows = 5;
@@ -116,33 +115,39 @@ namespace GroupingMehods
             List<double> diffrence = new List<double>();
             Centre[] centres = InitalizeCentres(points);
             int howManyTens = 1;
-            for (int i = 0; i < EpochsCount; i++)
+            List<int> numbers = GenerateNumbers(points);
+            for (int i = 0; i < SamplesCount; i++)
             {
-                List<int> numbers = GenerateNumbers(points);
-                for (int j = 0; j < SamplesCount; j++)
-                {
-                    int randomIndex = numbers[new Random().Next(numbers.Count)];
-                    numbers.Remove(randomIndex);
-                    currentLearningRate = learningRate * ((EpochsCount * SamplesCount) - (i * SamplesCount + j)) / (EpochsCount * SamplesCount);
-                    List<CentreDistancePair> centreDistancePairs = CreateAndSortDistanceCentrePairs(centres, points, randomIndex);
+                int randomIndex = numbers[new Random().Next(numbers.Count)];
+                numbers.Remove(randomIndex);
+                currentLearningRate = learningRate * (SamplesCount - i) / (SamplesCount);
+                List<CentreDistancePair> centreDistancePairs = CreateAndSortDistanceCentrePairs(centres, points, randomIndex);
+                CentreDistancePair tiredWinner;
 
-                    CentreDistancePair tiredWinner;
-                    if (centreDistancePairs[0].centre.activity < 0.5)
-                    {
-                        tiredWinner = centreDistancePairs[0];
-                        centreDistancePairs.RemoveAt(0);
-                        tiredWinner.centre.activity += 1.0 / centres.Length;
-                    }
-                    ComputeNewPositionsAndIncreaseActivityNG(centreDistancePairs, centres, points, randomIndex);
-                }
-                ResetAllocations(centres);
-                ComputeDistancesAndAllocatePoints(centres, points);
-                diffrence.Add(ComputeEpochError(centres, points));
-                if(i == howManyTens*EpochsCount/10)
+
+                if (i % 5 == 0)
                 {
-                    WriteLine((howManyTens * 10) + "%");
-                    howManyTens++;
+                    InsertIterationErrorIntoList(centres, points, diffrence);
+                    if (i == howManyTens * SamplesCount / 10)
+                    {
+                        WriteLine((howManyTens * 10) + "%");
+                        howManyTens++;
+                    }
                 }
+
+
+                if (centreDistancePairs[0].centre.activity < 0.5)
+                {
+                    tiredWinner = centreDistancePairs[0];
+                    centreDistancePairs.RemoveAt(0);
+                    tiredWinner.centre.activity += 1.0 / centres.Length;
+                }
+                ComputeNewPositionsAndIncreaseActivityNG(centreDistancePairs, centres, points, randomIndex);
+            }
+            if (SamplesCount % 5 == 0)
+            {
+                InsertIterationErrorIntoList(centres, points, diffrence);
+
             }
             SaveCentresCordinates(centres, iterator);
             SaveDiffrencesToFile(centres, diffrence, iterator);
@@ -165,36 +170,37 @@ namespace GroupingMehods
                 }
             }
 
-            for (int i = 0; i < EpochsCount; i++)
+            List<int> numbers = GenerateNumbers(points);
+            for (int j = 0; j < SamplesCount; j++)
             {
-                List<int> numbers = GenerateNumbers(points);
-                for (int j = 0; j < SamplesCount; j++)
+                int randomIndex = numbers[new Random().Next(numbers.Count)];
+                numbers.Remove(randomIndex);
+                if (j % 5 == 0)
                 {
-                    int randomIndex = numbers[new Random().Next(numbers.Count)];
-                    numbers.Remove(randomIndex);
-                    List<CentreDistancePair> centreDistancePairs = CreateAndSortDistanceCentrePairs(centresVector, points, randomIndex);
-                    currentLearningRate = learningRate * ((EpochsCount * SamplesCount) - (i * SamplesCount + j))/ (EpochsCount * SamplesCount);
-
-                    Centre winner = centreDistancePairs[0].centre;
-                    Centre tired = null;
-                    if (winner.activity < 0.5)
+                    InsertIterationErrorIntoList(centresVector, points, diffrence);
+                    if (j == howManyTens * SamplesCount / 10)
                     {
-                        tired = winner;
-                        winner = centreDistancePairs[1].centre;
+                        WriteLine((howManyTens * 10) + "%");
+                        howManyTens++;
                     }
-                    int winI = 0;
-                    int winJ = 0;
-                    FindWinnerCordinates(ref winI, ref winJ, centresMatrix, winner);
-                    UpdateCentresActivitiesAndCordinatesKohonen(winI, winJ, centresMatrix, points, winner, tired, randomIndex);
                 }
-                ComputeDistancesAndAllocatePoints(centresVector, points);
-                diffrence.Add(ComputeEpochError(centresVector, points));
-                ResetAllocations(centresVector);
-                if (i == howManyTens * EpochsCount / 10)
+                List<CentreDistancePair> centreDistancePairs = CreateAndSortDistanceCentrePairs(centresVector, points, randomIndex);
+                currentLearningRate = learningRate * (SamplesCount - j) / SamplesCount;
+                Centre winner = centreDistancePairs[0].centre;
+                Centre tired = null;
+                if (winner.activity < 0.5)
                 {
-                    WriteLine((howManyTens * 10) + "%");
-                    howManyTens++;
+                    tired = winner;
+                    winner = centreDistancePairs[1].centre;
                 }
+                int winI = 0;
+                int winJ = 0;
+                FindWinnerCordinates(ref winI, ref winJ, centresMatrix, winner);
+                UpdateCentresActivitiesAndCordinatesKohonen(winI, winJ, centresMatrix, points, winner, tired, randomIndex);
+            }
+            if (SamplesCount % 5 == 0)
+            {
+                InsertIterationErrorIntoList(centresVector, points, diffrence);
             }
             SaveCentresCordinates(centresVector, iterator);
             SaveDiffrencesToFile(centresVector, diffrence, iterator);
@@ -563,6 +569,13 @@ namespace GroupingMehods
             {
                 c.ResetPoints();
             }
+        }
+
+        public static void InsertIterationErrorIntoList(Centre[] centres, List<Point> points, List<double> diffrence)
+        {
+            ComputeDistancesAndAllocatePoints(centres, points);
+            diffrence.Add(ComputeEpochError(centres, points));
+            ResetAllocations(centres);
         }
     }
     #endregion
