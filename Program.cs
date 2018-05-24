@@ -40,7 +40,7 @@ namespace GroupingMehods
     public class Program
     {
         #region GeneralSettings
-        public static Option option = Option.Kohonen;
+        public static Option option = Option.KMeans;
         public static int ExecutionsCount = 5;
         #endregion
         #region AppliesToKmeans
@@ -105,6 +105,8 @@ namespace GroupingMehods
                 UpdateCentresCordinates(centres);
                 ResetAllocations(centres);
             } while (isChanged);
+            ComputeDistancesAndAllocatePoints(centres, points);
+            diffrences.Add(ComputeEpochError(centres, points));
             SaveDiffrencesToFile(centres, diffrences, iterator);
             SaveCentresCordinates(centres, iterator);
         }
@@ -300,7 +302,7 @@ namespace GroupingMehods
             {
                 if (init == Init.Forgy)
                 {
-                    for (int i = 0; i < rows; i++)
+                    for (int i = 0; i < centres.Length; i++)
                     {
                         int randomIndex = numbers[new Random().Next(numbers.Count)];
                         numbers.Remove(randomIndex);
@@ -310,10 +312,6 @@ namespace GroupingMehods
                 }
                 if (init == Init.RandomPartition)
                 {
-                    for (int i = 0; i < centres.Length; i++)
-                    {
-                        centres[i] = new Centre();
-                    }
                     for (int i = 0; i < points.Count; i++)
                     {
                         centres[random.Next(centresCount)].points.Add(points[i]);
@@ -321,13 +319,14 @@ namespace GroupingMehods
                     for (int i = 0; i < centres.Length; i++)
                     {
                         centres[i].SetNewCordinates();
-                        centres[i].ResetPoints();
+                        centres[i].points.Clear();
+                        centres[i].points.TrimExcess();
                     }
                 }
             }
             else if (option == Option.NeuralGas)
             {
-                for (int i = 0; i < rows; i++)
+                for (int i = 0; i < centres.Length; i++)
                 {
                     centres[i] = new Centre()
                     {
